@@ -5,6 +5,7 @@ import { Device } from "../entity/Device.entity";
 import { phoneNumberFormatter } from "../helpers/formatter";
 import * as dotenv from "dotenv";
 import { Request, Response } from "express";
+import { io } from "..";
 
 // import { Client, LocalAuth, MessageMedia, Message  } from 'whatsapp-web.js';
 const { Client, LocalAuth, MessageMedia, Message  } = require('whatsapp-web.js');
@@ -12,7 +13,7 @@ const qrcode = require('qrcode-terminal');
 
 dotenv.config();
 
-const whatsapp = new Map();
+export const whatsapp = new Map();
 const clientRepository = AppDataSource.getRepository(Device);
 export async function initializeWhatsapp() {
     const deviceRepository = AppDataSource.getRepository(Device);
@@ -53,18 +54,36 @@ export async function generateClientWa(id: string){
     client.on('qr', (qr) => {
         clientRepository.update(id, {device_status: 'DISCONNECTED', device_phone: null, device_name: null});
         qrcode.generate(qr, {small: true});
+        qrcode.toDataURL(qr, (err, url) => {
+            io.emit('device', {
+                status : 'scan_qr',
+                device_id: id,
+                ready :  false,
+                qr: url,
+                message: 'Please scan your whatsapp !!!'
+    
+            });
+          });
         console.log('QR RECEIVED', qr);
     });
     
     client.on('ready', () => {
         clientRepository.update(id, {device_status: 'CONNECTED', device_phone: client.info.me.user, device_name: client.info.pushname});
-
+        io.emit('device', {
+            status : 'connected',
+            device_id: id,
+            ready :  true,
+            name : client.info.me.user,
+            phone: client.info.pushname,
+            message: `Your whatsapp already connected +${client.info.me.user} / ${client.info.pushname}`
+        });
         console.log('Client is ready!');
 
     });
 
     client.on('disconnected', async (reason)  =>  {
         console.log('disconnected', reason);
+        io.emit('message', { id: id, text: 'Whatsapp is disconnected!' });
             clientRepository.update(id, {device_status: 'DISCONNECTED', device_phone: null, device_name: null});
         const sessionFolderPath = path.join(__dirname, '../../keystore/session-'+id);
         fs.rmSync(sessionFolderPath, { recursive: true, force: true });
@@ -77,7 +96,21 @@ export async function generateClientWa(id: string){
     });
     client.on('authenticated', (session) => {
         console.log('AUTHENTICATED', session);
+        io.emit('device', {
+            status : 'connected',
+            device_id: id,
+            ready :  true,
+        });
     });
+    client.on('auth_failure', function() {
+        io.emit('message', { id: id, text: 'Auth failure, restarting...' });
+        io.emit('device', {
+            status : 'disconnected',
+            device_id: id,
+            ready :  false,
+            message: 'Auth failure, restarting...'
+        });
+      });
     
     client.initialize();
      

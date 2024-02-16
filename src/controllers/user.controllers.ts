@@ -57,6 +57,19 @@ export class UserController {
     res.status(200).json({ message: "udpdate", user });
   }
 
+  static async resetPassword(req: Request, res: Response) {
+    const { id } = req.params;
+    const { password } = req.body;
+    const encryptedPassword = await encrypt.encryptpass(password);
+    const userRepository = AppDataSource.getRepository(User);
+    const user = await userRepository.findOne({
+      where: { id },
+    });
+    user.password = encryptedPassword;
+    await userRepository.save(user);
+    res.status(200).json({ message: "password updated" });
+  }
+
   static async deleteUser(req: Request, res: Response) {
     const { id } = req.params;
     const userRepository = AppDataSource.getRepository(User);

@@ -5,10 +5,21 @@ import { DeviceController } from "../controllers/device.controller";
 const Router = express.Router();
 
 Router.get(
-  "/clients",
+  "/",
   authentification,
   DeviceController.getClients
 );
+Router.get(
+  "/:id",
+  authentification,
+  DeviceController.show
+);
+Router.delete(
+  "/:id",
+  authentification,
+  DeviceController.delete
+);
+Router.put
 
 Router.post("/add", authentification, DeviceController.add);
 
