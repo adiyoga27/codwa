@@ -6,5 +6,5 @@ tmp/
 temp/
 keystore
 .wwebjs_cache/
-.env.example
+.env
 package-lock.json
