@@ -13,19 +13,14 @@ const qrcode = require('qrcode-terminal');
 
 dotenv.config();
 
-export const whatsapp = new Map();
 const clientRepository = AppDataSource.getRepository(Device);
+export const whatsapp = new Map();
 export async function initializeWhatsapp() {
     const deviceRepository = AppDataSource.getRepository(Device);
     const devices = await deviceRepository.find();
-    console.log(devices)
-
     devices.forEach(async (device) => {
         generateClientWa(device.id);
     });
-    // const clientRepository = AppDataSource.getRepository(Device);
-    // const clients = await clientRepository.find();
-    // console.log(clients)
 }
 
 export async function generateClientWa(id: string){
@@ -50,13 +45,12 @@ export async function generateClientWa(id: string){
         } 
     });
     
-
     client.on('qr', (qr) => {
-        clientRepository.update(id, {device_status: 'DISCONNECTED', device_phone: null, device_name: null});
+        clientRepository.update(id, {device_status: 'SCAN_QR', device_phone: null, device_name: null});
         qrcode.generate(qr, {small: true});
         qrcode.toDataURL(qr, (err, url) => {
             io.emit('device', {
-                status : 'scan_qr',
+                status : 'SCAN_QR',
                 device_id: id,
                 ready :  false,
                 qr: url,
@@ -70,7 +64,7 @@ export async function generateClientWa(id: string){
     client.on('ready', () => {
         clientRepository.update(id, {device_status: 'CONNECTED', device_phone: client.info.me.user, device_name: client.info.pushname});
         io.emit('device', {
-            status : 'connected',
+            status : 'CONNECTED',
             device_id: id,
             ready :  true,
             name : client.info.me.user,
@@ -97,7 +91,7 @@ export async function generateClientWa(id: string){
     client.on('authenticated', (session) => {
         console.log('AUTHENTICATED', session);
         io.emit('device', {
-            status : 'connected',
+            status : 'CONNECTED',
             device_id: id,
             ready :  true,
         });
@@ -105,7 +99,7 @@ export async function generateClientWa(id: string){
     client.on('auth_failure', function() {
         io.emit('message', { id: id, text: 'Auth failure, restarting...' });
         io.emit('device', {
-            status : 'disconnected',
+            status : 'DISCONNECTED',
             device_id: id,
             ready :  false,
             message: 'Auth failure, restarting...'
@@ -114,12 +108,11 @@ export async function generateClientWa(id: string){
     
     client.initialize();
      
+    //Save to map
     whatsapp.set(id, client);
-
 }
 
 export class WhatsappController {
-
     static async sendMessage(req: Request, res: Response){
         const { device_id, phone, message } = req.body;
         const client = whatsapp.get(device_id);
