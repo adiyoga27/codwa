@@ -1,7 +1,7 @@
 module.exports = {
   apps : [{
     name: 'WAJS',
-    script: './build/index.js',
+    script: 'node ./build/index.js',
     watch: '.'
   },],
 };
